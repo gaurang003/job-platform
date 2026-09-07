@@ -45,4 +45,11 @@ public class ResumeController {
 
         resumeService.deleteResume(id);
     }
+
+    @GetMapping("/{id}/text")
+    public String extractResumeText(
+            @PathVariable Long id) throws IOException {
+
+        return resumeService.extractResumeText(id);
+    }
 }

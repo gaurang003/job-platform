@@ -25,6 +25,10 @@ public class Resume {
     @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String extractedText;
+
     public Resume() {
     }
 
@@ -66,5 +70,13 @@ public class Resume {
 
     public void setUploadedAt(LocalDateTime uploadedAt) {
         this.uploadedAt = uploadedAt;
+    }
+
+    public String getExtractedText() {
+        return extractedText;
+    }
+
+    public void setExtractedText(String extractedText) {
+        this.extractedText = extractedText;
     }
 }

@@ -19,7 +19,8 @@ public class SecurityConfig {
                                 "/api/jobs/**",
                                 "/api/applications/**",
                                 "/api/profiles/**",
-                                "/api/resumes/**"
+                                "/api/resumes/**",
+                                "/api/resume-analysis/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

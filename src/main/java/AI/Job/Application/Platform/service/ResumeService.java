@@ -18,13 +18,16 @@ public class ResumeService {
 
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
+    private final PdfTextExtractorService pdfTextExtractorService;
 
     private final String uploadDirectory = "uploads/resumes/";
 
     public ResumeService(ResumeRepository resumeRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         PdfTextExtractorService pdfTextExtractorService) {
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
+        this.pdfTextExtractorService = pdfTextExtractorService;
     }
 
     public Resume uploadResume(Long userId, MultipartFile file) throws IOException {
@@ -52,12 +55,15 @@ public class ResumeService {
                 StandardCopyOption.REPLACE_EXISTING
         );
 
+        String extractedText = pdfTextExtractorService.extractText(filePath);
+
         Resume resume = new Resume();
 
         resume.setUser(user);
         resume.setFileName(originalFileName);
         resume.setFilePath(filePath.toString());
         resume.setUploadedAt(LocalDateTime.now());
+        resume.setExtractedText(extractedText);
 
         return resumeRepository.save(resume);
     }
@@ -82,5 +88,15 @@ public class ResumeService {
         Files.deleteIfExists(filePath);
 
         resumeRepository.delete(resume);
+    }
+
+    public String extractResumeText(Long resumeId) throws IOException {
+
+        Resume resume = resumeRepository.findById(resumeId)
+                .orElseThrow(() -> new RuntimeException("Resume not found"));
+
+        Path path = Paths.get(resume.getFilePath());
+
+        return pdfTextExtractorService.extractText(path);
     }
 }
