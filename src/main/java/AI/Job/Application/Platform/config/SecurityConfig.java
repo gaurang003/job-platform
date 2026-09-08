@@ -20,7 +20,8 @@ public class SecurityConfig {
                                 "/api/applications/**",
                                 "/api/profiles/**",
                                 "/api/resumes/**",
-                                "/api/resume-analysis/**"
+                                "/api/resume-analysis/**",
+                                "/api/resume-analysis/resume/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
