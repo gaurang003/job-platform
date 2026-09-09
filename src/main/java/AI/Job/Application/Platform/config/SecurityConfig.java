@@ -21,7 +21,8 @@ public class SecurityConfig {
                                 "/api/profiles/**",
                                 "/api/resumes/**",
                                 "/api/resume-analysis/**",
-                                "/api/resume-analysis/resume/**"
+                                "/api/resume-analysis/resume/**",
+                                "/api/job-matches/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
