@@ -44,6 +44,12 @@ public class JobMatch {
     @Column(columnDefinition = "LONGTEXT")
     private String explanation;
 
+    @Column(columnDefinition = "LONGTEXT")
+    private String strengths;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String weaknesses;
+
     @Column(nullable = false)
     private LocalDateTime matchedAt;
 
@@ -144,5 +150,21 @@ public class JobMatch {
 
     public void setExplanation(String explanation) {
         this.explanation = explanation;
+    }
+
+    public String getStrengths() {
+        return strengths;
+    }
+
+    public void setStrengths(String strengths) {
+        this.strengths = strengths;
+    }
+
+    public String getWeaknesses() {
+        return weaknesses;
+    }
+
+    public void setWeaknesses(String weaknesses) {
+        this.weaknesses = weaknesses;
     }
 }

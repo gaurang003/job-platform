@@ -22,21 +22,18 @@ public class AIResumeAnalysisService {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
-    @Value("${ai.api.key}")
+    @Value("${gemini.api.key}")
     private String apiKey;
 
-    @Value("${ai.api.url}")
+    @Value("${gemini.api.url}")
     private String apiUrl;
 
-    @Value("${ai.api.model}")
+    @Value("${gemini.api.model}")
     private String model;
 
     public AIResumeAnalysisService(ObjectMapper objectMapper) {
-
         this.objectMapper = objectMapper;
-
-        this.restClient = RestClient.builder()
-                .build();
+        this.restClient = RestClient.builder().build();
     }
 
     public AIResumeAnalysisResponse analyzeResume(
@@ -44,28 +41,60 @@ public class AIResumeAnalysisService {
 
         String prompt = buildPrompt(request);
 
-        Map<String, Object> message = new HashMap<>();
-        message.put("role", "user");
-        message.put("content", prompt);
+        Map<String, Object> textPart = new HashMap<>();
+        textPart.put("text", prompt);
+
+        Map<String, Object> content = new HashMap<>();
+        content.put("parts", List.of(textPart));
 
         Map<String, Object> body = new HashMap<>();
+        body.put("contents", List.of(content));
 
-        body.put("model", model);
-        body.put("messages", List.of(message));
-        body.put("temperature", 0.2);
+        int maxAttempts = 3;
 
-        String response = restClient.post()
-                .uri(apiUrl)
-                .header(
-                        HttpHeaders.AUTHORIZATION,
-                        "Bearer " + apiKey
-                )
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(String.class);
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
 
-        return parseResponse(response);
+            try {
+
+                String response = restClient.post()
+                        .uri(apiUrl)
+                        .header("x-goog-api-key", apiKey)
+                        .header(
+                                HttpHeaders.CONTENT_TYPE,
+                                MediaType.APPLICATION_JSON_VALUE
+                        )
+                        .body(body)
+                        .retrieve()
+                        .body(String.class);
+
+                return parseResponse(response);
+
+            } catch (org.springframework.web.client.HttpServerErrorException.ServiceUnavailable e) {
+
+                if (attempt == maxAttempts) {
+
+                    throw new RuntimeException(
+                            "Gemini service is temporarily unavailable after "
+                                    + maxAttempts
+                                    + " attempts. Please try again later.",
+                            e
+                    );
+                }
+
+                try {
+                    Thread.sleep(1000L * attempt);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+
+                    throw new RuntimeException(
+                            "Gemini retry was interrupted.",
+                            interruptedException
+                    );
+                }
+            }
+        }
+
+        throw new RuntimeException("Gemini analysis failed.");
     }
 
     private String buildPrompt(AIResumeAnalysisRequest request) {
@@ -75,21 +104,37 @@ public class AIResumeAnalysisService {
 
                 Analyze the candidate's resume against the job description.
 
-                IMPORTANT:
-                - Only use information present in the resume.
-                - Do not invent skills or experience.
-                - Distinguish professional experience from learning/upskilling.
-                - Compare the actual resume content with the job requirements.
-                - Return ONLY valid JSON.
-                - Do not use markdown.
-                - matchScore must be between 0 and 100.
+                IMPORTANT RULES:
+
+                1. Only use information actually present in the resume.
+                2. Do not invent skills, experience, education, or projects.
+                3. Distinguish professional experience from learning/upskilling.
+                4. Compare the candidate's actual experience with the job requirements.
+                5. A skill mentioned under "Currently Upskilling", "Learning",
+                   "Familiarity", or similar sections should NOT be treated
+                   as professional experience.
+                6. matchScore must be between 0 and 100.
+                7. Return ONLY valid JSON.
+                8. Do not use markdown.
+                9. Do not wrap the JSON inside ```json.
+                10. matchedSkills should contain skills that genuinely match
+                    the job requirements.
+                11. missingSkills should contain important job requirements
+                    that are not demonstrated in the resume.
+                12. Give realistic recommendations.
 
                 Required JSON format:
 
                 {
                   "matchScore": 85,
-                  "matchedSkills": ["Java", "Spring Boot"],
-                  "missingSkills": ["Kafka"],
+                  "matchedSkills": [
+                    "Java",
+                    "Spring Boot",
+                    "SQL"
+                  ],
+                  "missingSkills": [
+                    "Kafka"
+                  ],
                   "strengths": [
                     "Strong Spring Boot backend experience"
                   ],
@@ -129,16 +174,30 @@ public class AIResumeAnalysisService {
 
             JsonNode root = objectMapper.readTree(response);
 
+            /*
+             * Gemini response structure:
+             *
+             * candidates
+             *   -> 0
+             *      -> content
+             *         -> parts
+             *            -> 0
+             *               -> text
+             */
+
             String content = root
-                    .path("choices")
+                    .path("candidates")
                     .path(0)
-                    .path("message")
                     .path("content")
+                    .path("parts")
+                    .path(0)
+                    .path("text")
                     .asText();
 
             if (content == null || content.isBlank()) {
                 throw new RuntimeException(
-                        "AI returned an empty response");
+                        "Gemini returned an empty response"
+                );
             }
 
             content = cleanJson(content);
@@ -189,7 +248,7 @@ public class AIResumeAnalysisService {
         } catch (Exception e) {
 
             throw new RuntimeException(
-                    "Failed to parse AI response: "
+                    "Failed to parse Gemini response: "
                             + e.getMessage(),
                     e
             );
@@ -231,7 +290,6 @@ public class AIResumeAnalysisService {
     }
 
     private String safe(String value) {
-
         return value == null ? "" : value;
     }
 }
